@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+	<title>IKTSL</title>
+	<link rel='stylesheet' href='stylesheets/style.css' />
+	<link rel='stylesheet' href='bootstrap/css/bootstrap1.css' />
+	<style>
+		#question_options div button:nth-child(1){
+			visibility: visible;
+		}
+		.well{
+			visibility: hidden;
+		}
+	</style>
+	<script type="text/javascript" src="http://gc.kis.scr.kaspersky-labs.com/1B74BD89-2A22-4B93-B451-1C9E1052A0EC/main.js" charset="UTF-8"></script><script src="js/jquery.min.js"></script>
+	<script src='http://localhost:3000/socket.io/socket.io.js'></script>
+	<script>
+
+	var socket = io.connect('http://localhost:3000');
+	
+	socket.emit('getLeaderboard');
+	console.log('asd');
+	socket.on('displayOverallLeaderBoard',function(players){
+		console.log(players);
+		
+		var overallLeaderboardHtml = "										\
+		<h3>Overall Leaderboard</h3>										\
+			<table class ='table table-striped table-bordered '>			\
+				<tr>														\
+					<td>Rank</td>											\
+					<td>Player</td>											\
+					<td>Rating</td>											\
+				</tr>";
+		k=1;
+		
+		for(i=0 ; i<players.length; i++)
+		{
+			for(var j=0;j<players.length-1;j++)
+			{
+				if(players[j].rating/players[j].gamesPlayed < players[j+1].rating/players[j+1].gamesPlayed){
+					var temp = players[j];
+					players[j]=players[j+1];
+					players[j+1]=temp;
+				}
+			}
+		}
+		
+		players.forEach(function(player) {
+
+			overallLeaderboardHtml += "<tr>";
+			overallLeaderboardHtml += "<td>" + 		k++	    + "</td>";
+			overallLeaderboardHtml += "<td>" + player.userName  + "</td>";
+			overallLeaderboardHtml += "<td>" + player.rating / player.gamesPlayed	+ "</td>";
+			overallLeaderboardHtml += "</tr>";
+
+		}, this);
+		overallLeaderboardHtml += "</table>";
+
+		$(".hero-unit").html(overallLeaderboardHtml);
+
+		game_running = false;
+	});
+
+	</script>
+	</head>
+	<body>
+	<div class='container-fluid'>
+			<div class='row'>
+			<div class='span12'>
+			<br>
+			<br>
+			<h1>I Know This Song Lyrics!</h1>
+	<br>
+	</div>
+	</div>
+	<br>
+	<br>
+	<div class='row'>
+			<div class='span4'>
+			<div class='well'>
+				<!--Sidebar will be inserted by jQ-->
+			</div>
+			</div>
+			<div class='span8'>
+			<div class='hero-unit'>
+				<h3>Leaderboard</h3>									
+				<table class ='table table-striped table-bordered '>	
+					<tr>					
+						<td>Rank</td>		
+						<td>Player</td>	
+						<td>Rating</td>	
+					</tr>
+
+			</div>
+			</div>
+			<div class='span5'>
+			<div class='users'>
+			<h3>Players</h3>
+			<div class="connectedUsers"></div>
+			</div>
+			</div>
+			</div>

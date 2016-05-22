@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+	<title>IKTSL</title>
+	<link rel='stylesheet' href='stylesheets/style.css' />
+	<link rel='stylesheet' href='bootstrap/css/bootstrap1.css' />
+	<style>
+		#question_options div button:nth-child(1){
+			visibility: visible;
+		}
+	</style>
+	<script type="text/javascript" src="http://gc.kis.scr.kaspersky-labs.com/1B74BD89-2A22-4B93-B451-1C9E1052A0EC/main.js" charset="UTF-8"></script><script src="js/jquery.min.js"></script>
+	<script src='http://localhost:3000/socket.io/socket.io.js'></script>
+	<script>
+		//TODO: Complete
+		var i = 1,
+				timer = 0,
+				fixPoint = 0,
+				multiplier = 0,
+				maxTime = 0,
+				timeRemaining = 0,
+				timeBonus = 0,
+				curentQuestion = -1,
+				currentLevel = 0,
+				game_running = false;
+				
+				
+				var practice = false;
+
+		var user =
+		{
+			"userName": "",
+			"score": 0,
+			"rating": 1000,
+			"gamesPlayed": 0
+		};
+
+		var questions, difficulty, answer=-1;
+
+		var difficultyList = {
+			"easy":{
+				"level": "easy",
+				"FixPoint": 100,
+				"CRA": 10,
+				"Maxtime": 60
+			},
+			"medium":{
+				"level": "medium",
+				"FixPoint": 150,
+				"CRA": 30,
+				"Maxtime": 50
+			},
+			"hard":{
+				"level": "hard",
+				"FixPoint": 200,
+				"CRA": 50,
+				"Maxtime": 40
+			}
+		};
+		
+		var difficultyList2 = 
+		{
+			"easy":{
+				"level": "easy",
+				"FixPoint": 100,
+				"CRA": 0,
+				"Maxtime": 60
+			},
+			"medium":{
+				"level": "medium",
+				"FixPoint": 150,
+				"CRA": 0,
+				"Maxtime": 50
+			},
+			"hard":{
+				"level": "hard",
+				"FixPoint": 200,
+				"CRA": 0,
+				"Maxtime": 40
+			}
+		};
+
+
+		var socket = io.connect('http://localhost:3000');
+
+		var menuHtml = "															\
+	    <div class='Menu'>															\
+	      <button id='btnJoin' class='btn btn-primary'>Practice</button><br><br>	\
+	      <button id='btnHelp' class='btn btn-primary'>How to Play</button><br><br>	\
+	      <button id='btnMul' class='btn btn-primary'>Tournament</button><br><br>	\
+		  <button id='btnLed' class='btn btn-primary'>Overall Leadearboards</button><br><br>	\
+	      <button id='btnExit' class='btn btn-primary'>Exit Game</button>			\
+	    </div>";
+
+		var htpHtml = "																							\
+	    <div class='htp'>																						\
+	      Single Player<br>																						\
+	      There will be 3 songs to play for each stage.<br>														\
+	      Player will have to play from song 1 until player reaches song 3.<br>									\
+	      Answer as quickly as you recognize and remember the lyrics.<br>										\
+	      <br>																									\
+	      Multiplayer<br>																						\
+	      Player must choose and enter an available competition room to be able to play with other players.<br>	\
+	      Player must finish the competition until the end or lose rating points.<br>							\
+	     </div>";
+
+		var sidebarHtml = "																\
+	    <div class='side'>																\
+	      <button id='btnJoin' class='btn btn-primary'>Practice</button><br><br>		\
+	      <button id='btnHelp' class='btn btn-primary'>How to Play</button><br><br>		\
+	      <button id='btnMul' class='btn btn-primary'>Tournament</button><br><br>		\
+		  <button id='btnLed' class='btn btn-primary'>Overall Leadearboards</button><br><br>	\
+	      <button id='btnExit' class='btn btn-primary'>Exit Game</button>				\
+	    </div>";
+
+		var difficultySelectionHtml = "																			\
+		<div class='lobby'>																						\
+	    	<h6>Competition Rooms</h6><br><br>																	\
+	          <button id='btnEasy' class='btn btn-mary'>Easy Room (Rating Reward: 10)</button><br><br>			\
+	          <button id='btnNorm' class='btn btn-mary'>Normal Room (Rating Reward: 30)</button><br><br>		\
+	          <button id='btnDiff' class='btn btn-mary'>Difficult Room (Rating Reward: 50)</button><br><br>	\
+		</div>";
+		
+		var PracticeHtml = "																			\
+		<div class='lobby'>																						\
+	    	<h6>Practice Rooms</h6><br><br>																	\
+	          <button id='btnEasy2' class='btn btn-mary'>Easy Room</button><br><br>			\
+	          <button id='btnNorm2' class='btn btn-mary'>Normal Room</button><br><br>		\
+	          <button id='btnDiff2' class='btn btn-mary'>Difficult Room</button><br><br>	\
+		</div>";
+
+		var quizHtml = "																																\
+		<div class='show_questions'>															\
+			<p id='stats'>																		\
+				<p id='timer'></p>																\
+				<p id='score'></p>																\
+				<p id='ratingPoints'></p>														\
+			</p>																				\
+			<h2 id='Stage'>Stage #</h2>															\
+			<h3 id='Round'>Song #</h3>															\
+				<div id='question'>																\
+					<h3 id='question_title'>													\
+						Waiting for 1 more player						\
+					</h3>																		\
+					<div id='question_options'>													\
+						<div><button class='btn btn-default'>item 1</button></div>				\
+						<div><button class='btn btn-default'>item 2</button></div>				\
+						<div><button class='btn btn-default'>item 3</button></div>				\
+						<div><button class='btn btn-default'>item 4</button></div>				\
+					</div>																		\
+				</div>																			\
+			</div>";
+
+		var competetionRoomHtml = "																					\
+		<div class='lobby'>																						\
+	      <h6>Tournament Rooms</h6><br><br>																	\
+	      <button id='btnEasy' class='btn btn-mary'>Easy Room (Rating Reward: 10)</button><br><br>				\
+	      <button id='btnNorm' class='btn btn-mary'>Normal Room (Rating Reward: 30)</button><br><br>			\
+	      <button id='btnDiff' class='btn btn-mary'>Difficult Room (Rating Reward: 50)</button><br><br>		\
+		</div>";
+
+		socket.on('newUserList', function(data){
+			$(".connectedUsers").html('');
+
+			$.each(data.userList, function(i, user){
+				$(".connectedUsers").append("<div id='"+user+"'>"+user+"</div>");
+			});
+		});
+
+		socket.on('updateUserList', function(data){
+			if(data.connectionType ==  'add'){
+				$(".connectedUsers").append("<div id='"+data.user+"'>"+data.user+"</div>");
+			} else {
+				$("#"+data.user).remove();
+			}
+		});
+
+		socket.on('displayQuestions', function(data){
+
+			game_running = true;
+			maxTime = difficulty.Maxtime;
+			fixPoint = difficulty.FixPoint;
+			multiplier = fixPoint/maxTime;
+			//user.score = fixPoint * multiplier;
+
+			window.questions = data.songslist;
+
+			location.replace("#1");
+			get_question(0);
+
+			$(".show_questions").fadeIn(0);
+			$("#question_options").fadeIn(0);
+		});
+
+		socket.on('displayRanking', function(players) {
+			i=1;
+
+			var leaderboardHtml = "											\
+			<h3>Leaderboard</h3>										\
+				<table class ='table table-striped table-bordered '>	\
+					<tr>					\
+						<td>Players</td>	\
+						<td>Score</td>		\
+						<td>Rank</td>		\
+						<td>New Rating</td>	\
+					</tr>";
+
+			players.forEach(function(player) {
+
+				leaderboardHtml += "<tr>";
+				leaderboardHtml += "<td>" + player.userName+ "</td>";
+				leaderboardHtml += "<td>" + player.score 	+ "</td>";
+				leaderboardHtml += "<td>" + 		i++		+ "</td>";
+				if(practice == false)
+				{
+				leaderboardHtml += "<td>" + player.rating 	+ "</td>";
+				}
+				else if(practice == true)
+				{
+					leaderboardHtml += "<td>"+"You got no rating"+"</td>";
+				}
+				
+				leaderboardHtml += "</tr>";
+
+				if(player.userName == user.userName && player.score == user.score)
+					user = player;
+
+			}, this);
+			leaderboardHtml += "</table>";
+
+			$(".hero-unit").html(leaderboardHtml);
+
+			i=1;
+			game_running = false;
+		});
+		
+		socket.on('displayOverallLeadearBoard',function(players){
+			var overallLeaderboardHtml = "											\
+			<h3>Leaderboard</h3>										\
+				<table class ='table table-striped table-bordered '>	\
+					<tr>					\
+						<td>Rank</td>		\
+						<td>Player</td>	\
+						<td>Rating</td>	\
+					</tr>";
+			i=1;
+			players.forEach(function(player) {
+				if(player.rating > 4000){
+					overallLeaderboardHtml += "<tr>";
+					overallLeaderboardHtml += "<td>" + 		i++	    + "</td>";
+					overallLeaderboardHtml += "<td>" + player.userName  + "</td>";
+					overallLeaderboardHtml += "<td>" + player.rating / player.gamesPlayed + "</td>";
+					overallLeaderboardHtml += "</tr>";
+				}
+			}, this);
+			overallLeaderboardHtml += "</table>";
+
+			$(".hero-unit").html(overallLeaderboardHtml);
+
+			game_running = false;
+		});
+		
+		$(document).ready(function() {
+			$(".hero-unit").html(menuHtml);
+			
+			//When someone clicks on help button
+			$("body").on('click', '#btnHelp', function() {
+				$(".hero-unit").html(htpHtml);
+				$(".well").html(sidebarHtml);
+			});
+			
+			//When someone selects a item on menu,
+			//Display sidebar
+			$("body").on('click', '#btnMul', function () 
+			{
+			practice = false;
+				if(game_running == false)
+				{
+					$(".hero-unit").html(competetionRoomHtml);
+					$(".well").html(sidebarHtml);
+				}
+
+				else
+				{
+					$(".hero-unit").html(quizHtml);
+					get_question(curentQuestion);
+				}
+			});
+			
+			$("body").on('click', '#btnJoin', function () 
+			{
+			practice = true;
+			if(game_running == false)
+				{
+					$(".hero-unit").html(PracticeHtml);
+					$(".well").html(sidebarHtml);
+				}
+				
+				else
+				{
+					$(".hero-unit").html(quizHtml);
+					get_question(curentQuestion);
+				}
+			});
+
+			//When someone selects difficulty room
+			$("body").on('click', '.btn-mary', function () {
+
+				if(this.id == "btnEasy"){
+					difficulty = difficultyList.easy;
+				}
+				else if(this.id == "btnNorm"){
+					difficulty = difficultyList.medium;
+				}
+				else if(this.id == "btnDiff"){
+					difficulty = difficultyList.hard;
+				}
+				
+				else if(this.id == "btnEasy2")
+				{
+					difficulty = difficultyList2.easy;
+				}
+				else if(this.id == "btnNorm2")
+				{
+					difficulty = difficultyList2.medium;
+				}
+				else if(this.id == "btnDiff2")
+				{
+					difficulty = difficultyList2.hard;
+				}
+
+				maxTime = difficulty;
+
+				getUsername();
+				socket.emit('addUser', user.userName, difficulty);
+
+				$(".hero-unit").html(quizHtml);
+			});
+			
+			//When someone clicks on 'Overall Leadearboard' button
+			$("body").on('click', '#btnLed', function() {
+				window.open('http://localhost:3000/leadearboard.html');
+			});
+
+			$("body").on('click', '#btnExit', function() {
+				window.close();
+			});
+
+			$('body').on('click','.btn-option',function() {
+
+				if(i<15)
+				{
+					if($(this).attr("value") == answer)
+					{
+						updateScore(true);
+					}
+
+					else
+					{
+						updateScore(false);
+					}
+
+					$(".show_index").html("");
+					location.replace("#"+(i+1));
+
+					get_question(i);
+					$(".show_questions").fadeIn(0);
+
+					i++;
+				}
+				else if(i == 15){
+
+					if($(this).attr("value") == answer)
+					{
+						updateScore(true);
+					}
+
+					else
+					{
+						updateScore(false);
+					}
+
+					fixPoint = 0,
+							multiplier = 0,
+							maxTime = 0,
+							timeRemaining = 0,
+							timeBonus = 0,
+							curentQuestion = -1,
+							currentLevel = 0,
+
+							clearInterval(timer);
+					socket.emit('gameCompleted',user);
+
+					alert('Game completed, Please wait for others to finish');
+					i++;
+					return;
+
+				}
+			});
+		});
+
+		function updateTimer() {
+			//If time is not over yet, reduce time
+			if(timeRemaining != 0)
+				$("#timer").html("00:" + --timeRemaining);
+
+			//else display next question
+			else
+			{
+				clearInterval(timer);
+				//get_question(curentQuestion+1);
+			}
+		}
+
+		function updateScore(result) {
+
+			if(result == true){
+				user.score += fixPoint * multiplier;
+
+				if(timeRemaining>0)
+					user.score += (timeRemaining*2);
+
+				/*else{
+					user.score += fixPoint * multiplier;
+				}*/
+
+			}else if(result == false){
+				user.score -= 0;
+
+				if(timeRemaining>0)
+					user.score += 0;
+
+				else {
+					user.score += - fixPoint;
+				}
+
+			}
+
+			user.score = Math.floor(user.score);
+			$("#score").html(user.score);
+		}
+
+		function get_question(number){
+
+			if(curentQuestion != number){
+				curentQuestion = number;
+				var question = window.questions[number];
+				var option = [question.option1, question.option2, question.option3 ,question.option4];
+				var stageNo = Math.floor((number / 3) + 1);
+				var roundNo = number % 3 + 1;
+
+				currentLevel = stageNo;
+				timeRemaining = difficulty.Maxtime - ((currentLevel-1)*5);
+				maxTime = difficulty.Maxtime - ((currentLevel-1)*5);
+				multiplier = fixPoint/maxTime;
+
+				if(timer != 0)
+					clearInterval(timer);
+
+				$("#timer").html("00:" + timeRemaining);
+				timer = setInterval(updateTimer, 1000);
+
+				$("#Stage").html("Stage " + stageNo);
+				$("#Round").html("Song " + roundNo);
+
+				shuffle(option);
+
+				$("#question_title").html("").html(question.question);
+				$("#question_options").html("");
+				$.each(option,
+						function(i, item){
+							$("#question_options").append("<div><button class='btn btn-default btn-option' value='" + i + "'> " + item + "</button>");
+						});
+			}
+		}
+
+		function getUsername() {
+			if(user.userName == "")
+			{
+				var username = prompt("Username please");
+
+				if(username !=''){
+					user.userName = username;
+
+				}else {
+					alert("USERNAME PLEASE!");
+					getUsername();
+				}
+			}
+		}
+
+		function shuffle(array) {
+
+			var firstpos = -1;
+
+			var currentIndex = array.length,
+					temporaryValue, randomIndex;
+
+			// While there remain elements to shuffle...
+			while (0 !== currentIndex) {
+
+				// Pick a remaining element...
+				randomIndex = Math.floor(Math.random() * currentIndex);
+				currentIndex -= 1;
+
+				if(currentIndex == 0 && firstpos == -1)
+				{
+					firstpos = randomIndex;
+				}
+
+				if(randomIndex == 0 && firstpos == -1)
+				{
+					firstpos = currentIndex;
+				}
+
+				// And swap it with the current element.
+				temporaryValue = array[currentIndex];
+				array[currentIndex] = array[randomIndex];
+				array[randomIndex] = temporaryValue;
+			}
+
+			answer = firstpos;
+			return array;
+		}
+
+	</script>
+	</script>
+	</head>
+	<body>
+	<div class='container-fluid'>
+			<div class='row'>
+			<div class='span12'>
+			<br>
+			<br>
+			<h1>I Know This Song Lyrics!</h1>
+	<br>
+	</div>
+	</div>
+	<br>
+	<br>
+	<div class='row'>
+			<div class='span4'>
+			<div class='well'>
+				<!--Sidebar will be inserted by jQ-->
+			</div>
+			</div>
+			<div class='span8'>
+			<div class='hero-unit'>
+			</div>
+			</div>
+			<div class='span5'>
+			<div class='users'>
+			<h3>Players</h3>
+			<div class="connectedUsers"></div>
+			</div>
+			</div>
+			</div>
